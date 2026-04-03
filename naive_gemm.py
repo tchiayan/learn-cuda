@@ -5,9 +5,9 @@ import torch
 
 @cute.kernel
 def kernel_gemm(A: cute.Tensor, B: cute.Tensor, C: cute.Tensor):
-    M = 2
-    N = 2
-    K = 2
+    M = A.shape[0]
+    N = B.shape[0]
+    K = A.shape[1]
     tidx, tidy, _ = cute.arch.thread_idx()
     bidx, bidy, _ = cute.arch.block_idx()
     block_dim_x, block_dim_y, _ = cute.arch.block_dim()
@@ -22,6 +22,12 @@ def kernel_gemm(A: cute.Tensor, B: cute.Tensor, C: cute.Tensor):
             cute.printf(f"A[1]: {A[1]}") # Expecting value 3
             cute.printf(f"A[2]: {A[2]}") # Expecting value 2
             cute.printf(f"A[3]: {A[3]}") # Expecting value 4
+            
+        for i in range(K): # default is column major, unless u specify dlpack with row major
+            cute.printf(f"B[0]: {B[0]}") # Expecting value 5
+            cute.printf(f"B[1]: {B[1]}") # Expecting value 7
+            cute.printf(f"B[2]: {B[2]}") # Expecting value 6
+            cute.printf(f"B[3]: {B[3]}") # Expecting value 8
     
     if x < M and y < N:
         temp = 0.0
@@ -31,12 +37,15 @@ def kernel_gemm(A: cute.Tensor, B: cute.Tensor, C: cute.Tensor):
                 # i=0, A = 1.0, i= 1, A=3
                 # i=0, B = 5.0, i=1, B=6
                 # 1.0 * 5.0 + 3.0 * 7.0
-                cute.printf(f"Thread ({tidx}, {tidy}) computing C[{x}, {y}] | A[x*K+i]: {A[x*K + i]} | B[i*N+y]: {B[i*N + y]} ") 
-        C[x*N + y] = temp
+                cute.printf(f"Thread ({tidx}, {tidy}) computing C[{x}, {y}] | A[i*M+x]: {A[i*M + x]} | B[y*K+i]: {B[y*K + i]} ") 
+        C[y*M + x] = temp
     
 
 @cute.jit 
 def gemm(A: cute.Tensor, B: cute.Tensor, C: cute.Tensor):
+    print(A)
+    print(B)
+    print(C)
     kernel_gemm(A, B, C).launch(
         grid=[1, 1, 1], 
         block=[2, 2, 1]
